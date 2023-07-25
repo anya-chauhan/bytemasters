@@ -19,6 +19,9 @@ search_keywords = ["AI+code+assistants", "AI+coding+buddies", "copilot"]
 # Get the URLs of the search results
 urls = set()
 
+# Set the maximum number of clicks
+max_clicks = 5  # increase variable to get more results
+
 # Iterate over search keywords
 for keyword in search_keywords:
     url = base_url + keyword
@@ -29,9 +32,11 @@ for keyword in search_keywords:
 
     prev_urls_count = len(urls)  # Count of urls before new keyword
 
-    while True:
+    clicks = 0  # initialize the counter
+
+    while clicks < max_clicks:
         # Scroll down to bottom multiple times
-        for _ in range(10):  # Increase variable to scroll more times
+        for _ in range(10):  # increase variable to get more results
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
             # Wait to load page
@@ -44,11 +49,12 @@ for keyword in search_keywords:
         for link in link_elements:
             urls.add(link.get_attribute('href'))
 
-        # try to click the More Results page button
+        # try to click the next page button
         try:
             next_button = driver.find_element(By.XPATH, "//span[contains(text(), 'More results')]")
             driver.execute_script("arguments[0].scrollIntoView();", next_button)
             driver.execute_script("arguments[0].click();", next_button)
+            clicks += 1
         except NoSuchElementException:
             print('No more pages')
             break
@@ -57,7 +63,7 @@ for keyword in search_keywords:
         time.sleep(5)
     
     print(f'Added {len(urls) - prev_urls_count} urls for keyword: {keyword.replace("+", " ")}')
-
+    
 # Iterate over each URL, navigate to it and then extract the article summary and reactions
 for url in urls:
     driver.get(url)
