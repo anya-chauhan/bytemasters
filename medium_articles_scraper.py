@@ -10,7 +10,7 @@ import pandas as pd
 
 # Define an empty DataFrame
 # Keyword is the keyword used in Google search. Rest of df items are extracted from Medium articles
-df = pd.DataFrame(columns=['Keyword', 'URL', 'Title', 'Subtitle', 'Summary', 'Reactions', 'Date', 'MemberOnly'])
+df = pd.DataFrame(columns=['Keyword', 'URL', 'Title', 'Subtitle', 'Summary', 'Reactions', 'MemberOnly'])
 
 # Open the Chrome browser
 driver_service = Service(r"Path to chromedriver.exe")
@@ -107,14 +107,6 @@ for keyword in search_keywords:
             reactions = reactions_element.text
         except NoSuchElementException:
             reactions = None
-            
-        try:
-            #get the date
-            date_div = driver.find_element(By.TAG_NAME, "h1").find_element(By.XPATH, "..")
-            date_element = date_div.find_element(By.CLASS_NAME, "ae").find_elements(By.TAG_NAME, "span")[-1]
-            date = date_element.text
-        except NoSuchElementException:
-           date = None
                 
         try:
             # Check if 'Member-only story' is in the HTML
@@ -124,7 +116,7 @@ for keyword in search_keywords:
             member_only = False
     
         # Add the data to the DataFrame
-        df = df.append({'Keyword': keyword, 'URL': url, 'Title': title, 'Subtitle': subtitle, 'Summary': summary, 'Reactions': reactions, 'Date': date, 'MemberOnly': member_only}, ignore_index=True)
+        df = df.append({'Keyword': keyword, 'URL': url, 'Title': title, 'Subtitle': subtitle, 'Summary': summary, 'Reactions': reactions, 'MemberOnly': member_only}, ignore_index=True)
 
 # Save the DataFrame to a CSV file
 df.to_csv('article_data.csv', index=False)
