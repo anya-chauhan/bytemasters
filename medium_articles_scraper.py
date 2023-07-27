@@ -6,21 +6,30 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException
 
+import pandas as pd
+
+# Define an empty DataFrame
+# Keyword is the keyword used in Google search. Rest of df items are extracted from Medium articles
+df = pd.DataFrame(columns=['Keyword', 'URL', 'Title', 'Subtitle', 'Summary', 'Reactions', 'Date', 'MemberOnly'])
+
 # Open the Chrome browser
 driver_service = Service(r"Path to chromedriver.exe")
 options = Options()
 driver = webdriver.Chrome(service=driver_service, options=options)
 wait = WebDriverWait(driver, 10)
 
+
 # Define the Google search URL
 base_url = 'https://www.google.com/search?q=site%3Amedium.com+'
-search_keywords = ["AI+code+assistants", "AI+coding+buddies", "copilot"]
+search_keywords = ["copilot", "codewhisperer", "tabnine", "chatgpt", "ai code assistants"]
+
 
 # Get the URLs of the search results
 urls = set()
 
-# Set the maximum number of clicks
-max_clicks = 5  # increase variable to get more results
+# Set the maximum number of clicks of "more results" on the Google search page
+max_clicks = 10 # increase variable to get more results
+
 
 # Iterate over search keywords
 for keyword in search_keywords:
@@ -35,12 +44,13 @@ for keyword in search_keywords:
     clicks = 0  # initialize the counter
 
     while clicks < max_clicks:
+        
         # Scroll down to bottom multiple times
-        for _ in range(10):  # increase variable to get more results
+        for _ in range(10):  # any number >= actual number of scrolls needed will yield all results
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
             # Wait to load page
-            time.sleep(3)  # reduced sleep time as we are now scrolling multiple times
+            time.sleep(3)  
 
         # Find the search result links
         link_elements = driver.find_elements(By.XPATH, '//div[@class="yuRUbf"]/a')
@@ -49,7 +59,7 @@ for keyword in search_keywords:
         for link in link_elements:
             urls.add(link.get_attribute('href'))
 
-        # try to click the next page button
+        # try to click the more results or next page button, check the results page to see which one you need
         try:
             next_button = driver.find_element(By.XPATH, "//span[contains(text(), 'More results')]")
             driver.execute_script("arguments[0].scrollIntoView();", next_button)
@@ -63,41 +73,61 @@ for keyword in search_keywords:
         time.sleep(5)
     
     print(f'Added {len(urls) - prev_urls_count} urls for keyword: {keyword.replace("+", " ")}')
+
+
+    # Iterate over each URL, navigate to it and then extract the article details
+    for url in urls:
+        driver.get(url)
+        time.sleep(5)  # wait for the page to load
     
-# Iterate over each URL, navigate to it and then extract the article summary and reactions
-for url in urls:
-    driver.get(url)
-    time.sleep(5)  # wait for the page to load
+        try:
+            # get the article title
+            title_element = driver.find_element(By.XPATH, "//h1[contains(@class, 'pw-post-title')]")
+            title = title_element.text
+        except NoSuchElementException:
+            title = None
+    
+        try:
+            # get the article subtitle
+            subtitle_element = driver.find_element(By.XPATH, "//h2[contains(@class, 'pw-subtitle-paragraph')]")
+            subtitle = subtitle_element.text
+        except NoSuchElementException:
+            subtitle = None
+    
+        try:
+            # get the article summary
+            summary_element = driver.find_element(By.XPATH, "//p[contains(@class, 'pw-post-body-paragraph')]")
+            summary = summary_element.text
+        except NoSuchElementException:
+            summary = None
+    
+        try:
+            # get the reactions
+            reactions_element = driver.find_element(By.XPATH, "//div[contains(@class, 'pw-multi-vote-count')]") 
+            reactions = reactions_element.text
+        except NoSuchElementException:
+            reactions = None
+            
+        try:
+            #get the date
+            date_div = driver.find_element(By.TAG_NAME, "h1").find_element(By.XPATH, "..")
+            date_element = date_div.find_element(By.CLASS_NAME, "ae").find_elements(By.TAG_NAME, "span")[-1]
+            date = date_element.text
+        except NoSuchElementException:
+           date = None
+                
+        try:
+            # Check if 'Member-only story' is in the HTML
+            driver.find_element(By.XPATH, "//*[contains(text(), 'Member-only story')]")
+            member_only = True
+        except NoSuchElementException:
+            member_only = False
+    
+        # Add the data to the DataFrame
+        df = df.append({'Keyword': keyword, 'URL': url, 'Title': title, 'Subtitle': subtitle, 'Summary': summary, 'Reactions': reactions, 'Date': date, 'MemberOnly': member_only}, ignore_index=True)
 
-    try:
-        # get the article title
-        title_element = driver.find_element(By.XPATH, "//h1[contains(@class, 'pw-post-title')]")
-        title = title_element.text
-    except NoSuchElementException:
-        title = None
-
-    try:
-        # get the article subtitle
-        subtitle_element = driver.find_element(By.XPATH, "//h2[contains(@class, 'pw-subtitle-paragraph')]")
-        subtitle = subtitle_element.text
-    except NoSuchElementException:
-        subtitle = None
-
-    try:
-        # get the article summary
-        summary_element = driver.find_element(By.XPATH, "//p[contains(@class, 'pw-post-body-paragraph')]")
-        summary = summary_element.text
-    except NoSuchElementException:
-        summary = None
-
-    try:
-        # get the reactions
-        reactions_element = driver.find_element(By.XPATH, "//div[contains(@class, 'pw-multi-vote-count')]") 
-        reactions = reactions_element.text
-    except NoSuchElementException:
-        reactions = None
-
-    print(title, subtitle, summary, reactions)
+# Save the DataFrame to a CSV file
+df.to_csv('article_data.csv', index=False)
 
 # Close the browser
 driver.quit()
