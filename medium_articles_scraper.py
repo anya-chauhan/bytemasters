@@ -7,10 +7,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException
 
 import pandas as pd
+import dateparser
 
 # Define an empty DataFrame
 # Keyword is the keyword used in Google search. Rest of df items are extracted from Medium articles
-df = pd.DataFrame(columns=['Keyword', 'URL', 'Title', 'Subtitle', 'Summary', 'Reactions', 'MemberOnly'])
+df = pd.DataFrame(columns=['Keyword', 'URL', 'Title', 'Subtitle', 'Summary', 'Reactions', 'MemberOnly', 'Date'])
 
 # Open the Chrome browser
 driver_service = Service(r"Path to chromedriver.exe")
@@ -114,9 +115,33 @@ for keyword in search_keywords:
             member_only = True
         except NoSuchElementException:
             member_only = False
-    
+
+        try:
+                subtitle_element_l = driver.find_elements(By.CLASS_NAME, "pw-subtitle-paragraph")
+                title_element_l = driver.find_elements(By.CLASS_NAME, "pw-post-title")
+            
+                if subtitle_element_l:
+                    info_div = subtitle_element_l[0].find_element(By.XPATH, "..")
+                elif title_element_l:
+                    info_div = title_element_l[0].find_element(By.XPATH, "..")
+                else:
+                    info_div = driver.find_elements(By.CLASS_NAME, "speechify-ignore")[-1]
+            
+                info_div = info_div.find_element(By.CLASS_NAME, "ae")
+                date_text = info_div.find_elements(By.TAG_NAME, "span")[-1].text
+            
+                if date_text == "·":
+                    raw_rdate = info_div.text.split("\n")[-1]
+                    date = dateparser.parse(raw_rdate)  # use dateparser to parse the relative date
+                    date = date.strftime("%B %d, %Y")  # format the date as a string
+                else:
+                    date = dateparser.parse(date_text).strftime("%B %d, %Y")  # parse and format the date
+            
+        except NoSuchElementException:
+                date = None
+            
         # Add the data to the DataFrame
-        df = df.append({'Keyword': keyword, 'URL': url, 'Title': title, 'Subtitle': subtitle, 'Summary': summary, 'Reactions': reactions, 'MemberOnly': member_only}, ignore_index=True)
+        df = df.append({'Keyword': keyword, 'URL': url, 'Title': title, 'Subtitle': subtitle, 'Summary': summary, 'Reactions': reactions, 'MemberOnly': member_only, 'Date'}, ignore_index=True)
 
 # Save the DataFrame to a CSV file
 df.to_csv('article_data.csv', index=False)
